@@ -29,8 +29,9 @@ COPY package.json ./
 RUN addgroup --system --gid 1001 webdb && \
     adduser --system --uid 1001 webdb
 
-# Set ownership
-RUN chown -R webdb:webdb /app
+# Create storage directory and set ownership
+RUN mkdir -p /tmp/webdb-storage && \
+    chown -R webdb:webdb /app /tmp/webdb-storage
 USER webdb
 
 # Health check using bun's fetch
