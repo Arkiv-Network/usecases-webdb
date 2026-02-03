@@ -1,4 +1,4 @@
-import type { DBChainEntry, SiteFile, SiteMetadata } from './types.js';
+import type { DBChainEntry, SiteFile, SiteMetadata } from "./types.js";
 
 // In-memory storage for demo purposes
 const demoStorage = new Map<string, DBChainEntry>();
@@ -22,7 +22,7 @@ export class DemoStorage {
         size: file.size,
         lastModified: file.lastModified.toISOString(),
       },
-      btl: Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60), // 30 days from now
+      btl: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60, // 30 days from now
     };
 
     demoStorage.set(key, entry);
@@ -41,11 +41,11 @@ export class DemoStorage {
     const metadata: SiteMetadata = {
       siteId,
       name: siteId,
-      domain: `${siteId}.webdb.site`,
+      domain: `${siteId}.webdb.usecases.arkiv.network`,
       totalSize,
       fileCount: files.length,
       createdAt: new Date(),
-      btlExpiry: new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)), // 30 days
+      btlExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
     };
 
     // Store metadata
@@ -54,13 +54,13 @@ export class DemoStorage {
       key: metadataKey,
       value: new TextEncoder().encode(JSON.stringify(metadata)),
       metadata: {
-        contentType: 'application/json',
-        path: '_metadata',
+        contentType: "application/json",
+        path: "_metadata",
         siteId,
         size: JSON.stringify(metadata).length,
         lastModified: new Date().toISOString(),
       },
-      btl: Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60),
+      btl: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
     };
 
     demoStorage.set(metadataKey, metadataEntry);
@@ -113,7 +113,7 @@ export class DemoStorage {
   }
 
   private generateFileKey(siteId: string, path: string): string {
-    const normalizedPath = path.startsWith('/') ? path.slice(1) : path;
+    const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
     return `site:${siteId}:file:${normalizedPath}`;
   }
 

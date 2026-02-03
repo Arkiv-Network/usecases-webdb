@@ -1,9 +1,9 @@
-import { writeFile, readFile, mkdir, access } from 'fs/promises';
-import { join } from 'path';
-import type { DBChainEntry, SiteFile, SiteMetadata } from './types.js';
-import { GolemDBClient } from './golem-db-client.js';
+import { access, mkdir, readFile, writeFile } from "fs/promises";
+import { join } from "path";
+import { GolemDBClient } from "./golem-db-client.js";
+import type { DBChainEntry, SiteFile, SiteMetadata } from "./types.js";
 
-const STORAGE_DIR = '/tmp/webdb-storage';
+const STORAGE_DIR = "/tmp/webdb-storage";
 
 export class FileStorage {
   private rpcUrl: string;
@@ -13,9 +13,11 @@ export class FileStorage {
     this.rpcUrl = rpcUrl;
     this.golemDB = new GolemDBClient({
       rpcUrl,
-      privateKey: process.env.GOLEM_PRIVATE_KEY || (() => {
-        throw new Error('GOLEM_PRIVATE_KEY environment variable is required');
-      })()
+      privateKey:
+        process.env.GOLEM_PRIVATE_KEY ||
+        (() => {
+          throw new Error("GOLEM_PRIVATE_KEY environment variable is required");
+        })(),
     });
     this.ensureStorageDir();
   }
@@ -40,7 +42,7 @@ export class FileStorage {
         size: file.size,
         lastModified: file.lastModified.toISOString(),
       },
-      btl: Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60), // 30 days from now
+      btl: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60, // 30 days from now
     };
 
     // Write to Golem DB (logs success/failure)
@@ -53,7 +55,10 @@ export class FileStorage {
     return txHash || key; // Return transaction hash if available, otherwise fallback to key
   }
 
-  async storeSite(siteId: string, files: SiteFile[]): Promise<{
+  async storeSite(
+    siteId: string,
+    files: SiteFile[],
+  ): Promise<{
     metadata: SiteMetadata;
     files: Array<{ path: string; size: number; key: string; txHash?: string }>;
     indexTxHash?: string;
@@ -61,7 +66,12 @@ export class FileStorage {
     const totalSize = files.reduce((sum, file) => sum + file.size, 0);
 
     // Store all files and capture transaction hashes
-    const fileResults: Array<{ path: string; size: number; key: string; txHash?: string }> = [];
+    const fileResults: Array<{
+      path: string;
+      size: number;
+      key: string;
+      txHash?: string;
+    }> = [];
     let indexTxHash: string | undefined;
 
     for (const file of files) {
@@ -74,7 +84,7 @@ export class FileStorage {
       });
 
       // Capture the index.html transaction hash for the explorer link
-      if (file.path === 'index.html') {
+      if (file.path === "index.html") {
         indexTxHash = txHash || undefined;
       }
     }
@@ -82,11 +92,11 @@ export class FileStorage {
     const metadata: SiteMetadata = {
       siteId,
       name: siteId,
-      domain: `${siteId}.webdb.site`,
+      domain: `${siteId}.webdb.usecases.arkiv.network`,
       totalSize,
       fileCount: files.length,
       createdAt: new Date(),
-      btlExpiry: new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)), // 30 days
+      btlExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
     };
 
     // Store metadata
@@ -95,13 +105,13 @@ export class FileStorage {
       key: metadataKey,
       value: new TextEncoder().encode(JSON.stringify(metadata)),
       metadata: {
-        contentType: 'application/json',
-        path: '_metadata',
+        contentType: "application/json",
+        path: "_metadata",
         siteId,
         size: JSON.stringify(metadata).length,
         lastModified: new Date().toISOString(),
       },
-      btl: Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60),
+      btl: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
     };
 
     await this.writeToGolemDB(metadataEntry);
@@ -176,7 +186,7 @@ export class FileStorage {
   private async readLocally(key: string): Promise<DBChainEntry | null> {
     try {
       const filePath = join(STORAGE_DIR, `${key}.json`);
-      const data = await readFile(filePath, 'utf8');
+      const data = await readFile(filePath, "utf8");
       const parsed = JSON.parse(data);
 
       return {
@@ -200,12 +210,14 @@ export class FileStorage {
           path: entry.metadata.path,
           siteId: entry.metadata.siteId,
           size: entry.metadata.size.toString(),
-          lastModified: entry.metadata.lastModified
+          lastModified: entry.metadata.lastModified,
         },
-        entry.btl
+        entry.btl,
       );
 
-      console.log(`✅ Stored in Golem DB: ${entry.key}, TX: ${result.transactionHash}, Entity: ${result.entityKey}`);
+      console.log(
+        `✅ Stored in Golem DB: ${entry.key}, TX: ${result.transactionHash}, Entity: ${result.entityKey}`,
+      );
       return result.entityKey; // Return entity key for explorer links
     } catch (error) {
       console.log(`⚠️ Golem DB error:`, error);
@@ -213,9 +225,8 @@ export class FileStorage {
     }
   }
 
-
   private generateFileKey(siteId: string, path: string): string {
-    const normalizedPath = path.startsWith('/') ? path.slice(1) : path;
+    const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
     return `site:${siteId}:file:${normalizedPath}`;
   }
 

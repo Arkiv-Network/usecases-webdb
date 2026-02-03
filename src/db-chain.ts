@@ -1,5 +1,5 @@
-import { z } from 'zod';
-import type { DBChainEntry, SiteFile, SiteMetadata } from './types.js';
+import { z } from "zod";
+import type { DBChainEntry, SiteFile, SiteMetadata } from "./types.js";
 
 // Temporary storage until Golem DB read is properly implemented
 const tempStorage = new Map<string, DBChainEntry>();
@@ -17,7 +17,9 @@ export class GolemDBStorage {
 
   async storeFile(siteId: string, file: SiteFile): Promise<string> {
     if (file.size > MAX_FILE_SIZE) {
-      throw new Error(`File ${file.path} exceeds maximum size of ${MAX_FILE_SIZE / 1024 / 1024}MB`);
+      throw new Error(
+        `File ${file.path} exceeds maximum size of ${MAX_FILE_SIZE / 1024 / 1024}MB`,
+      );
     }
 
     const key = this.generateFileKey(siteId, file.path);
@@ -42,7 +44,9 @@ export class GolemDBStorage {
     const totalSize = files.reduce((sum, file) => sum + file.size, 0);
 
     if (totalSize > MAX_SITE_SIZE) {
-      throw new Error(`Site exceeds maximum size of ${MAX_SITE_SIZE / 1024 / 1024}MB`);
+      throw new Error(
+        `Site exceeds maximum size of ${MAX_SITE_SIZE / 1024 / 1024}MB`,
+      );
     }
 
     const keys: string[] = [];
@@ -54,7 +58,7 @@ export class GolemDBStorage {
     const metadata: SiteMetadata = {
       siteId,
       name: siteId,
-      domain: `${siteId}.webdb.site`,
+      domain: `${siteId}.webdb.usecases.arkiv.network`,
       totalSize,
       fileCount: files.length,
       createdAt: new Date(),
@@ -66,8 +70,8 @@ export class GolemDBStorage {
       key: metadataKey,
       value: new TextEncoder().encode(JSON.stringify(metadata)),
       metadata: {
-        contentType: 'application/json',
-        path: '_metadata',
+        contentType: "application/json",
+        path: "_metadata",
         siteId,
         size: JSON.stringify(metadata).length,
         lastModified: new Date().toISOString(),
@@ -127,7 +131,7 @@ export class GolemDBStorage {
 
   private generateFileKey(siteId: string, path: string): string {
     // Normalize path to ensure consistent keys
-    const normalizedPath = path.startsWith('/') ? path.slice(1) : path;
+    const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
     return `site:${siteId}:file:${normalizedPath}`;
   }
 
@@ -138,19 +142,25 @@ export class GolemDBStorage {
   private async writeToGolemDB(entry: DBChainEntry): Promise<void> {
     // Try the standard Ethereum RPC interface first
     const response = await fetch(this.rpcUrl, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'eth_sendTransaction',
-        params: [{
-          from: '0x8ba1f109551bD432803012645Hac136c1DeD69FD', // Address derived from GOLEM_PRIVATE_KEY
-          to: '0x0000000000000000000000000000000060138453', // Golem DB storage contract
-          data: this.encodeStorageCall(entry.key, entry.value, entry.metadata),
-          gas: '0x5208',
-        }],
+        jsonrpc: "2.0",
+        method: "eth_sendTransaction",
+        params: [
+          {
+            from: "0x8ba1f109551bD432803012645Hac136c1DeD69FD", // Address derived from GOLEM_PRIVATE_KEY
+            to: "0x0000000000000000000000000000000060138453", // Golem DB storage contract
+            data: this.encodeStorageCall(
+              entry.key,
+              entry.value,
+              entry.metadata,
+            ),
+            gas: "0x5208",
+          },
+        ],
         id: Date.now(),
       }),
     });
@@ -170,14 +180,23 @@ export class GolemDBStorage {
     tempStorage.set(entry.key, entry);
   }
 
-  private encodeStorageCall(key: string, value: Uint8Array, metadata: any): string {
+  private encodeStorageCall(
+    key: string,
+    value: Uint8Array,
+    metadata: any,
+  ): string {
     // Simple hex encoding for now - this needs proper ABI encoding
-    const keyHex = Buffer.from(key).toString('hex');
-    const valueHex = Buffer.from(value).toString('hex');
-    const metadataHex = Buffer.from(JSON.stringify(metadata)).toString('hex');
+    const keyHex = Buffer.from(key).toString("hex");
+    const valueHex = Buffer.from(value).toString("hex");
+    const metadataHex = Buffer.from(JSON.stringify(metadata)).toString("hex");
 
     // Function selector for store(string,bytes,string) - dummy for now
-    return '0xa9059cbb' + keyHex.padStart(64, '0') + valueHex.padStart(64, '0') + metadataHex.padStart(64, '0');
+    return (
+      "0xa9059cbb" +
+      keyHex.padStart(64, "0") +
+      valueHex.padStart(64, "0") +
+      metadataHex.padStart(64, "0")
+    );
   }
 
   private async readFromGolemDB(key: string): Promise<DBChainEntry | null> {
@@ -191,28 +210,33 @@ export class GolemDBStorage {
     // Try to read from Golem DB (for production, this would work)
     try {
       const response = await fetch(this.rpcUrl, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          jsonrpc: '2.0',
-          method: 'eth_call',
-          params: [{
-            to: '0x0000000000000000000000000000000000000001',
-            data: this.encodeReadCall(key),
-          }, 'latest'],
+          jsonrpc: "2.0",
+          method: "eth_call",
+          params: [
+            {
+              to: "0x0000000000000000000000000000000000000001",
+              data: this.encodeReadCall(key),
+            },
+            "latest",
+          ],
           id: Date.now(),
         }),
       });
 
       if (!response.ok) {
-        console.log(`⚠️ Golem DB read failed for ${key}, fallback to temp storage`);
+        console.log(
+          `⚠️ Golem DB read failed for ${key}, fallback to temp storage`,
+        );
         return null;
       }
 
       const result = await response.json();
-      if (result.error || !result.result || result.result === '0x') {
+      if (result.error || !result.result || result.result === "0x") {
         console.log(`⚠️ No data in Golem DB for ${key}`);
         return null;
       }
@@ -220,7 +244,6 @@ export class GolemDBStorage {
       // TODO: Properly decode Golem DB response
       console.log(`📖 Retrieved from Golem DB: ${key}`);
       return tempEntry; // Fallback to temp for now
-
     } catch (error) {
       console.log(`⚠️ Golem DB error for ${key}:`, error);
       return null;
@@ -228,8 +251,8 @@ export class GolemDBStorage {
   }
 
   private encodeReadCall(key: string): string {
-    const keyHex = Buffer.from(key).toString('hex');
-    return '0x70a08231' + keyHex.padStart(64, '0');
+    const keyHex = Buffer.from(key).toString("hex");
+    return "0x70a08231" + keyHex.padStart(64, "0");
   }
 
   private isExpired(entry: DBChainEntry): boolean {

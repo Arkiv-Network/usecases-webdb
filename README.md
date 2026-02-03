@@ -105,16 +105,16 @@ server {
 
 ### Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PORT` | Server port | 3000 |
-| `HOSTNAME` | Server hostname | 0.0.0.0 |
-| `DOMAIN` | Base domain for sites | webdb.site |
-| `GOLEM_PRIVATE_KEY` | Ethereum private key for Golem DB | Required |
-| `GOLEM_RPC_URL` | Golem DB RPC endpoint | https://kaolin.holesky.golemdb.io/rpc |
-| `CORS_ORIGINS` | CORS allowed origins | * |
-| `MAX_FILE_SIZE` | Maximum file size in bytes | 2097152 (2MB) |
-| `MAX_SITE_SIZE` | Maximum site size in bytes | 52428800 (50MB) |
+| Variable            | Description                       | Default                               |
+| ------------------- | --------------------------------- | ------------------------------------- |
+| `PORT`              | Server port                       | 3000                                  |
+| `HOSTNAME`          | Server hostname                   | 0.0.0.0                               |
+| `DOMAIN`            | Base domain for sites             | webdb.usecases.arkiv.network          |
+| `GOLEM_PRIVATE_KEY` | Ethereum private key for Golem DB | Required                              |
+| `GOLEM_RPC_URL`     | Golem DB RPC endpoint             | https://kaolin.holesky.golemdb.io/rpc |
+| `CORS_ORIGINS`      | CORS allowed origins              | *                                     |
+| `MAX_FILE_SIZE`     | Maximum file size in bytes        | 2097152 (2MB)                         |
+| `MAX_SITE_SIZE`     | Maximum site size in bytes        | 52428800 (50MB)                       |
 
 ### Building from Source
 

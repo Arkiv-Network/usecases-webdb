@@ -1,46 +1,57 @@
-import { Hono } from 'hono';
-import { cors } from 'hono/cors';
-import { lookup } from 'mime-types';
-import { GolemDBStorage } from './db-chain.js';
-import { DemoStorage } from './demo-storage.js';
-import { FileStorage } from './file-storage.js';
-import { SiteUploader } from './uploader.js';
-import type { GatewayConfig } from './types.js';
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { lookup } from "mime-types";
+import { GolemDBStorage } from "./db-chain.js";
+import { DemoStorage } from "./demo-storage.js";
+import { FileStorage } from "./file-storage.js";
+import type { GatewayConfig } from "./types.js";
+import { SiteUploader } from "./uploader.js";
 
 const config: GatewayConfig = {
   port: Number(process.env.PORT) || 3000,
-  hostname: process.env.HOSTNAME || '0.0.0.0',
-  domain: process.env.DOMAIN || 'webdb.site',
-  dbChainRpcUrl: process.env.DBCHAIN_RPC_URL || process.env.GOLEM_RPC_URL || 'https://kaolin.hoodi.arkiv.network/rpc',
+  hostname: process.env.HOSTNAME || "0.0.0.0",
+  domain: process.env.DOMAIN || "webdb.usecases.arkiv.network",
+  dbChainRpcUrl:
+    process.env.DBCHAIN_RPC_URL ||
+    process.env.GOLEM_RPC_URL ||
+    "https://kaolin.hoodi.arkiv.network/rpc",
   maxFileSize: 2 * 1024 * 1024, // 2MB
   maxSiteSize: 50 * 1024 * 1024, // 50MB
   cors: {
-    origins: process.env.CORS_ORIGINS?.split(',') || ['*'],
-    methods: ['GET', 'HEAD', 'OPTIONS'],
-    headers: ['Content-Type', 'Authorization'],
+    origins: process.env.CORS_ORIGINS?.split(",") || ["*"],
+    methods: ["GET", "HEAD", "OPTIONS"],
+    headers: ["Content-Type", "Authorization"],
   },
 };
 
 const app = new Hono();
 // Use file storage with Golem DB backup
 const storage = new FileStorage(config.dbChainRpcUrl);
-const uploader = new SiteUploader(config.dbChainRpcUrl, config.maxFileSize, config.maxSiteSize, true); // Use file storage
+const uploader = new SiteUploader(
+  config.dbChainRpcUrl,
+  config.maxFileSize,
+  config.maxSiteSize,
+  true,
+); // Use file storage
 
 // CORS middleware
-app.use('*', cors({
-  origin: config.cors.origins,
-  allowMethods: ['GET', 'POST', 'HEAD', 'OPTIONS'],
-  allowHeaders: config.cors.headers,
-}));
+app.use(
+  "*",
+  cors({
+    origin: config.cors.origins,
+    allowMethods: ["GET", "POST", "HEAD", "OPTIONS"],
+    allowHeaders: config.cors.headers,
+  }),
+);
 
 // Health check endpoint
-app.get('/health', (c) => {
-  return c.json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get("/health", (c) => {
+  return c.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
 // Upload site endpoint
-app.post('/api/upload/:siteId', async (c) => {
-  const siteId = c.req.param('siteId');
+app.post("/api/upload/:siteId", async (c) => {
+  const siteId = c.req.param("siteId");
 
   try {
     const formData = await c.req.formData();
@@ -49,27 +60,29 @@ app.post('/api/upload/:siteId', async (c) => {
     for (const [key, value] of formData.entries()) {
       if (value instanceof File) {
         const content = new Uint8Array(await value.arrayBuffer());
-        const path = key.startsWith('files[') ? key.slice(6, -1) : value.name || key;
+        const path = key.startsWith("files[")
+          ? key.slice(6, -1)
+          : value.name || key;
         files.push({ path, content });
       }
     }
 
     if (files.length === 0) {
-      return c.json({ error: 'No files provided' }, 400);
+      return c.json({ error: "No files provided" }, 400);
     }
 
     const result = await uploader.uploadSite(siteId, files);
     return c.json(result);
   } catch (error) {
     console.error(`Upload error for ${siteId}:`, error);
-    const message = error instanceof Error ? error.message : 'Upload failed';
+    const message = error instanceof Error ? error.message : "Upload failed";
     return c.json({ error: message }, 400);
   }
 });
 
 // Upload additional files to existing site
-app.post('/api/upload/:siteId/files', async (c) => {
-  const siteId = c.req.param('siteId');
+app.post("/api/upload/:siteId/files", async (c) => {
+  const siteId = c.req.param("siteId");
 
   try {
     const formData = await c.req.formData();
@@ -78,79 +91,81 @@ app.post('/api/upload/:siteId/files', async (c) => {
     for (const [key, value] of formData.entries()) {
       if (value instanceof File) {
         const content = new Uint8Array(await value.arrayBuffer());
-        const path = key.startsWith('files[') ? key.slice(6, -1) : value.name || key;
+        const path = key.startsWith("files[")
+          ? key.slice(6, -1)
+          : value.name || key;
         files.push({ path, content });
       }
     }
 
     if (files.length === 0) {
-      return c.json({ error: 'No files provided' }, 400);
+      return c.json({ error: "No files provided" }, 400);
     }
 
     const result = await uploader.uploadFiles(siteId, files);
     return c.json(result);
   } catch (error) {
     console.error(`File upload error for ${siteId}:`, error);
-    const message = error instanceof Error ? error.message : 'Upload failed';
+    const message = error instanceof Error ? error.message : "Upload failed";
     return c.json({ error: message }, 400);
   }
 });
 
 // Get site metadata
-app.get('/api/sites/:siteId', async (c) => {
-  const siteId = c.req.param('siteId');
+app.get("/api/sites/:siteId", async (c) => {
+  const siteId = c.req.param("siteId");
 
   try {
     const metadata = await storage.getSiteMetadata(siteId);
     if (!metadata) {
-      return c.json({ error: 'Site not found' }, 404);
+      return c.json({ error: "Site not found" }, 404);
     }
 
     return c.json(metadata);
   } catch (error) {
     console.error(`Error getting site metadata for ${siteId}:`, error);
-    return c.json({ error: 'Failed to get site metadata' }, 500);
+    return c.json({ error: "Failed to get site metadata" }, 500);
   }
 });
 
 // Subdomain handler middleware
-app.use('*', async (c, next) => {
-  const host = c.req.header('host') || '';
-  const domain = process.env.DOMAIN || 'webdb.site';
+app.use("*", async (c, next) => {
+  const host = c.req.header("host") || "";
+  const domain = process.env.DOMAIN || "webdb.usecases.arkiv.network";
 
   console.log(`🌐 Middleware: host=${host}, domain=${domain}`);
 
-  if (host !== domain && host.endsWith('.' + domain)) {
-    const siteId = host.replace('.' + domain, '');
-    const path = c.req.path === '/' ? '/index.html' : c.req.path;
+  if (host !== domain && host.endsWith("." + domain)) {
+    const siteId = host.replace("." + domain, "");
+    const path = c.req.path === "/" ? "/index.html" : c.req.path;
 
     try {
       const metadata = await storage.getSiteMetadata(siteId);
       if (!metadata) {
-        return c.html(createNotFoundPage('Site not found'), 404);
+        return c.html(createNotFoundPage("Site not found"), 404);
       }
 
       if (new Date() > metadata.btlExpiry) {
         return c.html(createExpiredPage(siteId, metadata.btlExpiry), 404);
       }
 
-      const filePath = path.startsWith('/') ? path.slice(1) : path;
-      const file = await storage.getFile(siteId, filePath || 'index.html');
+      const filePath = path.startsWith("/") ? path.slice(1) : path;
+      const file = await storage.getFile(siteId, filePath || "index.html");
 
       if (!file) {
-        if (filePath === 'index.html' || filePath === '') {
-          const indexHtm = await storage.getFile(siteId, 'index.htm');
+        if (filePath === "index.html" || filePath === "") {
+          const indexHtm = await storage.getFile(siteId, "index.htm");
           if (indexHtm) {
             return serveFile(c, indexHtm);
           }
         }
-        return c.html(createNotFoundPage('File not found'), 404);
+        return c.html(createNotFoundPage("File not found"), 404);
       }
 
       return serveFile(c, file);
     } catch (error) {
       console.error(`Error serving subdomain ${siteId}${path}:`, error);
-      return c.html(createErrorPage('Internal server error'), 500);
+      return c.html(createErrorPage("Internal server error"), 500);
     }
   }
 
@@ -158,25 +173,25 @@ app.use('*', async (c, next) => {
 });
 
 // Main site root - serve landing page
-app.get('/', async (c) => {
+app.get("/", async (c) => {
   return c.html(createLandingPage());
 });
 
 // API documentation page
-app.get('/api', async (c) => {
+app.get("/api", async (c) => {
   return c.html(createApiDocPage());
 });
 
 // Serve static site files
-app.get('/:siteId/*', async (c) => {
-  const siteId = c.req.param('siteId');
-  const path = c.req.param('*') || 'index.html';
+app.get("/:siteId/*", async (c) => {
+  const siteId = c.req.param("siteId");
+  const path = c.req.param("*") || "index.html";
 
   try {
     // First check if site metadata exists
     const metadata = await storage.getSiteMetadata(siteId);
     if (!metadata) {
-      return c.html(createNotFoundPage('Site not found'), 404);
+      return c.html(createNotFoundPage("Site not found"), 404);
     }
 
     // Check if site has expired
@@ -188,42 +203,43 @@ app.get('/:siteId/*', async (c) => {
     const file = await storage.getFile(siteId, path);
     if (!file) {
       // If requesting root and no index.html, try index.htm
-      if (path === 'index.html') {
-        const indexHtm = await storage.getFile(siteId, 'index.htm');
+      if (path === "index.html") {
+        const indexHtm = await storage.getFile(siteId, "index.htm");
         if (indexHtm) {
           return serveFile(c, indexHtm);
         }
       }
-      return c.html(createNotFoundPage('File not found'), 404);
+      return c.html(createNotFoundPage("File not found"), 404);
     }
 
     return serveFile(c, file);
   } catch (error) {
     console.error(`Error serving ${siteId}/${path}:`, error);
-    return c.html(createErrorPage('Internal server error'), 500);
+    return c.html(createErrorPage("Internal server error"), 500);
   }
 });
 
 // Serve site root (redirect to index.html)
-app.get('/:siteId', async (c) => {
-  const siteId = c.req.param('siteId');
+app.get("/:siteId", async (c) => {
+  const siteId = c.req.param("siteId");
   return c.redirect(`/${siteId}/index.html`);
 });
 
 function serveFile(c: any, file: any) {
   // Set content type
-  const contentType = file.contentType || lookup(file.path) || 'application/octet-stream';
+  const contentType =
+    file.contentType || lookup(file.path) || "application/octet-stream";
 
   // Set security headers
-  c.header('Content-Type', contentType);
-  c.header('Content-Length', file.size.toString());
-  c.header('Last-Modified', file.lastModified.toUTCString());
-  c.header('Cache-Control', 'public, max-age=3600'); // 1 hour cache
+  c.header("Content-Type", contentType);
+  c.header("Content-Length", file.size.toString());
+  c.header("Last-Modified", file.lastModified.toUTCString());
+  c.header("Cache-Control", "public, max-age=3600"); // 1 hour cache
 
   // Set security headers
-  c.header('X-Content-Type-Options', 'nosniff');
-  c.header('X-Frame-Options', 'SAMEORIGIN');
-  c.header('X-XSS-Protection', '1; mode=block');
+  c.header("X-Content-Type-Options", "nosniff");
+  c.header("X-Frame-Options", "SAMEORIGIN");
+  c.header("X-XSS-Protection", "1; mode=block");
 
   return c.body(file.content);
 }
@@ -375,7 +391,7 @@ function createApiDocPage(): string {
                 <h3>Upload Your Site</h3>
                 <div class="code-block">
                     <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-                    <pre>curl -X POST https://webdb.site/api/upload/mysite \\
+                    <pre>curl -X POST https://webdb.usecases.arkiv.network/api/upload/mysite \\
   -F "files=@index.html;filename=index.html" \\
   -F "files=@style.css;filename=style.css" \\
   -F "files=@script.js;filename=script.js"</pre>
@@ -387,7 +403,7 @@ function createApiDocPage(): string {
                     <pre>{
   "success": true,
   "siteId": "mysite",
-  "url": "https://mysite.webdb.site",
+  "url": "https://mysite.webdb.usecases.arkiv.network",
   "files": [
     { "path": "index.html", "size": 2048, "txHash": "0x..." },
     { "path": "style.css", "size": 1024, "txHash": "0x..." }
@@ -403,7 +419,7 @@ function createApiDocPage(): string {
 
                 <div class="code-block">
                     <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-                    <pre>curl https://webdb.site/api/sites/mysite</pre>
+                    <pre>curl https://webdb.usecases.arkiv.network/api/sites/mysite</pre>
                 </div>
 
                 <div class="endpoint">
@@ -414,7 +430,7 @@ function createApiDocPage(): string {
 
                 <div class="code-block">
                     <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-                    <pre>curl https://webdb.site/health</pre>
+                    <pre>curl https://webdb.usecases.arkiv.network/health</pre>
                 </div>
             </div>
 
@@ -425,7 +441,7 @@ function createApiDocPage(): string {
                 <h3>HTML + CSS + JS Example</h3>
                 <div class="code-block">
                     <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-                    <pre>curl -X POST https://webdb.site/api/upload/my-portfolio \\
+                    <pre>curl -X POST https://webdb.usecases.arkiv.network/api/upload/my-portfolio \\
   -F "files=@index.html;filename=index.html" \\
   -F "files=@styles/main.css;filename=main.css" \\
   -F "files=@js/app.js;filename=app.js" \\
@@ -454,7 +470,7 @@ const result = await response.json();</pre>
                     <li>Maximum file size: 2 MB</li>
                     <li>Maximum site size: 50 MB</li>
                     <li>Sites expire after 30 days (BTL)</li>
-                    <li>Subdomain format: yoursite.webdb.site</li>
+                    <li>Subdomain format: yoursite.webdb.usecases.arkiv.network</li>
                 </ul>
             </div>
 
@@ -464,7 +480,7 @@ const result = await response.json();</pre>
                 <h3>Deploy NFT Gallery</h3>
                 <div class="code-block">
                     <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-                    <pre>curl -X POST https://webdb.site/api/upload/nft-gallery \\
+                    <pre>curl -X POST https://webdb.usecases.arkiv.network/api/upload/nft-gallery \\
   -F "files=@gallery.html;filename=index.html" \\
   -F "files=@gallery.css;filename=style.css"</pre>
                 </div>
@@ -472,7 +488,7 @@ const result = await response.json();</pre>
                 <h3>Deploy Documentation</h3>
                 <div class="code-block">
                     <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-                    <pre>curl -X POST https://webdb.site/api/upload/project-docs \\
+                    <pre>curl -X POST https://webdb.usecases.arkiv.network/api/upload/project-docs \\
   -F "files=@docs/index.html;filename=index.html" \\
   -F "files=@docs/api.html;filename=api.html"</pre>
                 </div>
@@ -740,7 +756,7 @@ function createLandingPage(): string {
                 <div class="feature-card">
                     <div class="feature-icon">🆓</div>
                     <h3>Free Tier</h3>
-                    <p>Start with webdb.site subdomains at no cost.</p>
+                    <p>Start with webdb.usecases.arkiv.network subdomains at no cost.</p>
                 </div>
             </div>
         </div>
@@ -793,7 +809,7 @@ function createLandingPage(): string {
                 <div class="feature-card">
                     <div class="feature-icon">🌐</div>
                     <h3>Subdomain</h3>
-                    <p>yoursite.webdb.site format included</p>
+                    <p>yoursite.webdb.usecases.arkiv.network format included</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">🔄</div>
@@ -1103,11 +1119,11 @@ function createLandingPage(): string {
                             🎉 <strong>Site deployed successfully!</strong>
                         </div>
                         <div style="margin-bottom: 1rem;">
-                            Your site is live at: <strong>\${siteId}.webdb.site</strong>
+                            Your site is live at: <strong>\${siteId}.webdb.usecases.arkiv.network</strong>
                         </div>
                         <div class="result-actions">
                             <a href="\${siteUrl}" target="_blank" class="result-button btn-open">🔗 Open Site</a>
-                            <button onclick="copySiteUrl('\${siteId}.webdb.site')" class="result-button btn-copy">📋 Copy URL</button>
+                            <button onclick="copySiteUrl('\${siteId}.webdb.usecases.arkiv.network')" class="result-button btn-copy">📋 Copy URL</button>
                             <a href="\${explorerUrl}" target="_blank" class="result-button btn-explorer">🔍 View on Explorer</a>
                         </div>
                         <div style="margin-top: 1rem; font-size: 0.9rem; color: #666;">
@@ -1387,7 +1403,7 @@ function createLandingPage(): string {
                         const result = await response.json();
 
                         if (response.ok) {
-                            showAlert(\`Site deployed successfully! Visit: https://\${siteId}.webdb.site\`, 'Deployment Success', 'success');
+                            showAlert(\`Site deployed successfully! Visit: https://\${siteId}.webdb.usecases.arkiv.network\`, 'Deployment Success', 'success');
                             closeWysiwygEditor();
                         } else {
                             showAlert('Upload failed: ' + (result.error || 'Unknown error'), 'Deployment Failed', 'error');
